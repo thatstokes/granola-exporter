@@ -89,6 +89,7 @@ output/
 title: Weekly Team Sync
 date: 2026-05-07T18:00:00.000Z
 updated: 2026-05-07T19:30:00.000Z
+transcript: "[[granola/transcripts/2026-05-07 - Weekly Team Sync]]"
 type: meeting
 attendees:
   - "Jane Smith <jane@company.com>"
@@ -127,6 +128,7 @@ My own notes taken during the meeting appear here.
 ---
 title: Weekly Team Sync
 date: 2026-05-07T18:00:00.000Z
+note: "[[granola/notes/2026-05-07 - Weekly Team Sync]]"
 granola_id: abc123-def456
 duration_minutes: 32
 entry_count: 847

@@ -157,11 +157,14 @@ def yaml_escape(value: str) -> str:
     return value
 
 
-def build_note_frontmatter(doc: dict) -> str:
+def build_note_frontmatter(doc: dict, transcript_link: str = "") -> str:
     lines = ["---"]
     lines.append(f"title: {yaml_escape(doc.get('title', 'Untitled'))}")
     lines.append(f"date: {doc.get('created_at', '')}")
     lines.append(f"updated: {doc.get('updated_at', '')}")
+    if transcript_link:
+        lines.append(f"transcript: \"[[{transcript_link}]]\"")
+
 
     doc_type = doc.get("type")
     if doc_type:
@@ -215,10 +218,12 @@ def build_note_frontmatter(doc: dict) -> str:
     return "\n".join(lines)
 
 
-def build_transcript_frontmatter(doc: dict, entries: list) -> str:
+def build_transcript_frontmatter(doc: dict, entries: list, note_link: str = "") -> str:
     lines = ["---"]
     lines.append(f"title: {yaml_escape(doc.get('title', 'Untitled'))}")
     lines.append(f"date: {doc.get('created_at', '')}")
+    if note_link:
+        lines.append(f"note: \"[[{note_link}]]\"")
     lines.append(f"granola_id: {doc.get('id', '')}")
 
     if entries:
@@ -373,7 +378,10 @@ def main():
         filename = f"{date_prefix} - {sanitize_filename(title)}.md"
 
         content = get_note_content(doc)
-        frontmatter = build_note_frontmatter(doc)
+        basename = filename.removesuffix(".md")
+        transcript_link = f"{args.granola_dir}/{args.transcripts_dir}/{basename}"
+        note_link = f"{args.granola_dir}/{args.notes_dir}/{basename}"
+        frontmatter = build_note_frontmatter(doc, transcript_link=transcript_link)
 
         summary_md = ""
         if not args.no_summary:
@@ -428,7 +436,7 @@ def main():
             try:
                 transcript = api_call(access_token, "get-document-transcript", {"document_id": doc_id})
                 if isinstance(transcript, list) and transcript:
-                    t_frontmatter = build_transcript_frontmatter(doc, transcript)
+                    t_frontmatter = build_transcript_frontmatter(doc, transcript, note_link=note_link)
                     t_content = format_transcript(transcript)
                     t_path = transcripts_dir / filename
 
