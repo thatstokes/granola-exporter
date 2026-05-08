@@ -1,5 +1,8 @@
 # Granola Exporter
 
+![AI-Generated License Badge](vibe-coded-badge.svg)
+
+
 Export your [Granola](https://granola.ai) meeting notes, AI summaries, and transcripts to Markdown files with YAML frontmatter — perfect for Obsidian or any Markdown-based knowledge base.
 
 ## Requirements
