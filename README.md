@@ -13,16 +13,25 @@ Export your [Granola](https://granola.ai) meeting notes, AI summaries, and trans
 
 No pip dependencies — stdlib only.
 
+## Installation
+
+```bash
+git clone git@github.com:thatstokes/granola-exporter.git
+cd granola-exporter
+```
+
+The script is already marked executable, so you can run it directly — no `pip install` or virtual environment needed.
+
 ## Usage
 
 ```bash
-python3 export_granola.py --output ~/path/to/obsidian/vault
+./export_granola.py --output ~/path/to/obsidian/vault
 ```
 
 This will:
 1. Fetch all your meeting documents from Granola's API
-2. Export notes with AI-generated summaries to `notes/`
-3. Export full transcripts to `transcripts/`
+2. Export notes with AI-generated summaries to `granola-notes/`
+3. Export full transcripts to `granola-transcripts/`
 4. Track what was exported so the next run only processes new/updated meetings
 
 ### First run
@@ -49,22 +58,28 @@ python3 export_granola.py --output ./my-notes
 | `--full` | Force full export, ignoring last export timestamp |
 | `--no-summary` | Skip fetching AI-generated summaries |
 | `--no-transcript` | Skip fetching transcripts |
+| `--granola-dir` | Top-level folder inside output directory (default: `granola`) |
 | `--notes-dir` | Subfolder name for notes (default: `notes`) |
 | `--transcripts-dir` | Subfolder name for transcripts (default: `transcripts`) |
+| `--attachments-dir` | Subfolder name for downloaded images (default: `attachments`) |
 
 ## Output structure
 
 ```
 output/
-├── notes/
-│   ├── 2026-05-07 - Weekly Team Sync.md
-│   ├── 2026-05-06 - Product Review.md
-│   └── ...
-├── transcripts/
-│   ├── 2026-05-07 - Weekly Team Sync.md
-│   ├── 2026-05-06 - Product Review.md
-│   └── ...
-└── .granola-export-state.json
+└── granola/
+    ├── notes/
+    │   ├── 2026-05-07 - Weekly Team Sync.md
+    │   ├── 2026-05-06 - Product Review.md
+    │   └── ...
+    ├── transcripts/
+    │   ├── 2026-05-07 - Weekly Team Sync.md
+    │   ├── 2026-05-06 - Product Review.md
+    │   └── ...
+    ├── attachments/
+    │   ├── abc123-def456_0.png
+    │   └── ...
+    └── .granola-export-state.json
 ```
 
 ### Note format
@@ -76,17 +91,18 @@ date: 2026-05-07T18:00:00.000Z
 updated: 2026-05-07T19:30:00.000Z
 type: meeting
 attendees:
-  - name: Jane Smith
-    email: jane@company.com
-  - name: Bob Jones
-    email: bob@company.com
-calendar_event:
-  start: 2026-05-07T14:00:00-04:00
-  end: 2026-05-07T14:30:00-04:00
-  location: "Conference Room A"
+  - "Jane Smith <jane@company.com>"
+  - "Bob Jones <bob@company.com>"
+calendar_start: 2026-05-07T14:00:00-04:00
+calendar_end: 2026-05-07T14:30:00-04:00
+calendar_location: "Conference Room A"
 source: macOS
 granola_id: abc123-def456
 ---
+
+## Attachments
+
+![abc123-def456_0.png](../attachments/abc123-def456_0.png)
 
 ## Summary
 

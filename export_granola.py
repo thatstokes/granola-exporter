@@ -172,7 +172,12 @@ def build_note_frontmatter(doc: dict) -> str:
         attendee_list = []
         creator = people.get("creator")
         if creator:
-            attendee_list.append({"name": creator.get("name", ""), "email": creator.get("email", "")})
+            name = creator.get("name", "")
+            email = creator.get("email", "")
+            if name and email:
+                attendee_list.append(f"{name} <{email}>")
+            elif email:
+                attendee_list.append(email)
         for att in people.get("attendees", []):
             name = ""
             details = att.get("details", {})
@@ -180,25 +185,26 @@ def build_note_frontmatter(doc: dict) -> str:
                 name_info = details["person"].get("name", {})
                 name = name_info.get("fullName", "") if isinstance(name_info, dict) else ""
             email = att.get("email", "")
-            attendee_list.append({"name": name, "email": email})
+            if name and email:
+                attendee_list.append(f"{name} <{email}>")
+            elif email:
+                attendee_list.append(email)
         if attendee_list:
             lines.append("attendees:")
             for a in attendee_list:
-                lines.append(f"  - name: {yaml_escape(a['name'])}")
-                lines.append(f"    email: {a['email']}")
+                lines.append(f"  - {yaml_escape(a)}")
 
     cal = doc.get("google_calendar_event")
     if cal:
-        lines.append("calendar_event:")
         start = cal.get("start", {})
         end = cal.get("end", {})
         if start.get("dateTime"):
-            lines.append(f"  start: {start['dateTime']}")
+            lines.append(f"calendar_start: {start['dateTime']}")
         if end.get("dateTime"):
-            lines.append(f"  end: {end['dateTime']}")
+            lines.append(f"calendar_end: {end['dateTime']}")
         location = cal.get("location")
         if location:
-            lines.append(f"  location: {yaml_escape(location)}")
+            lines.append(f"calendar_location: {yaml_escape(location)}")
 
     source = doc.get("creation_source")
     if source:
@@ -261,6 +267,30 @@ def get_doc_date_prefix(doc: dict) -> str:
     return "unknown-date"
 
 
+def download_attachments(attachments: list, attachments_dir: Path, doc_id: str) -> list[str]:
+    downloaded = []
+    for i, att in enumerate(attachments):
+        if att.get("type") != "image":
+            continue
+        url = att.get("url", "")
+        if not url:
+            continue
+        ext = ".png"
+        if "jpg" in url or "jpeg" in url:
+            ext = ".jpg"
+        filename = f"{doc_id}_{i}{ext}"
+        filepath = attachments_dir / filename
+        if not filepath.exists():
+            try:
+                req = urllib.request.Request(url)
+                resp = urllib.request.urlopen(req, timeout=30)
+                filepath.write_bytes(resp.read())
+            except Exception:
+                continue
+        downloaded.append(filename)
+    return downloaded
+
+
 def load_state(output_dir: Path) -> dict:
     state_path = output_dir / STATE_FILE_NAME
     if state_path.exists():
@@ -278,19 +308,24 @@ def save_state(output_dir: Path, state: dict):
 def main():
     parser = argparse.ArgumentParser(description="Export Granola meeting notes to Markdown")
     parser.add_argument("--output", "-o", type=str, required=True, help="Output directory (Obsidian vault path)")
+    parser.add_argument("--granola-dir", type=str, default="granola", help="Top-level folder inside output directory")
     parser.add_argument("--notes-dir", type=str, default="notes", help="Subfolder for notes")
     parser.add_argument("--transcripts-dir", type=str, default="transcripts", help="Subfolder for transcripts")
+    parser.add_argument("--attachments-dir", type=str, default="attachments", help="Subfolder for downloaded images")
     parser.add_argument("--full", action="store_true", help="Force full export (ignore last export timestamp)")
     parser.add_argument("--no-summary", action="store_true", help="Skip fetching AI summaries from Granola API")
     parser.add_argument("--no-transcript", action="store_true", help="Skip fetching transcripts")
     args = parser.parse_args()
 
     output_dir = Path(args.output).expanduser().resolve()
-    notes_dir = output_dir / args.notes_dir
-    transcripts_dir = output_dir / args.transcripts_dir
+    granola_dir = output_dir / args.granola_dir
+    notes_dir = granola_dir / args.notes_dir
+    transcripts_dir = granola_dir / args.transcripts_dir
+    attachments_dir = granola_dir / args.attachments_dir
 
     notes_dir.mkdir(parents=True, exist_ok=True)
     transcripts_dir.mkdir(parents=True, exist_ok=True)
+    attachments_dir.mkdir(parents=True, exist_ok=True)
 
     access_token = get_access_token()
     if not access_token:
@@ -314,7 +349,7 @@ def main():
 
     print(f"  Found {len(documents)} documents")
 
-    export_state = load_state(output_dir)
+    export_state = load_state(granola_dir)
     last_export = export_state.get("last_export_timestamp", "")
 
     if args.full:
@@ -360,10 +395,20 @@ def main():
             except Exception as e:
                 print(f"  Warning: Failed to fetch summary for: {title} ({e})")
 
+        attachments = doc.get("attachments") or []
+        image_filenames = []
+        if attachments:
+            image_filenames = download_attachments(attachments, attachments_dir, doc_id)
+
+        rel_attachments = f"../{args.attachments_dir}"
         note_path = notes_dir / filename
         with open(note_path, "w") as f:
             f.write(frontmatter)
             f.write("\n\n")
+            if image_filenames:
+                f.write("## Attachments\n\n")
+                for img in image_filenames:
+                    f.write(f"![{img}]({rel_attachments}/{img})\n\n")
             if summary_md:
                 f.write("## Summary\n\n")
                 f.write(summary_md)
@@ -405,14 +450,14 @@ def main():
         export_state["last_export_timestamp"] = now
         export_state["last_export_notes_count"] = notes_exported
         export_state["last_export_transcripts_count"] = transcripts_exported
-        save_state(output_dir, export_state)
+        save_state(granola_dir, export_state)
 
     print(f"Export complete:")
     print(f"  Notes exported: {notes_exported}")
     print(f"  Summaries fetched: {summaries_fetched}")
     print(f"  Transcripts exported: {transcripts_exported}")
     print(f"  Skipped (unchanged): {skipped}")
-    print(f"  Output: {output_dir}")
+    print(f"  Output: {granola_dir}")
     return 0
 
 
